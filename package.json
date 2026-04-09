@@ -1,0 +1,316 @@
+// ══════════════════════════════════════════════
+// EMIR.COM — Servidor Principal
+// Node.js + Express + Supabase
+// ══════════════════════════════════════════════
+
+require('dotenv').config();
+const express    = require('express');
+const cors       = require('cors');
+const bcrypt     = require('bcrypt');
+const jwt        = require('jsonwebtoken');
+const axios      = require('axios');
+const rateLimit  = require('express-rate-limit');
+const { createClient } = require('@supabase/supabase-js');
+
+const app  = express();
+const PORT = process.env.PORT || 3000;
+
+// ── SUPABASE ──────────────────────────────────
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
+
+// ── MIDDLEWARE ────────────────────────────────
+app.use(cors({
+  origin: [
+    process.env.FRONTEND_URL,
+    'http://localhost:3000',
+    'http://127.0.0.1:5500'   // Live Server local
+  ],
+  credentials: true
+}));
+app.use(express.json());
+
+// Rate limiting global
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
+app.use(limiter);
+
+// Rate limiting agressivo para login
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { erro: 'Muitas tentativas. Espera 15 minutos.' } });
+
+// ── HELPER: AUTENTICAÇÃO ──────────────────────
+function authMiddleware(req, res, next) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) {
+    return res.status(401).json({ erro: 'Token em falta.' });
+  }
+  try {
+    const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET);
+    req.admin = decoded;
+    next();
+  } catch (e) {
+    return res.status(401).json({ erro: 'Token inválido ou expirado.' });
+  }
+}
+
+// ── HELPER: NÚMERO DE ENCOMENDA ───────────────
+async function gerarNumeroEncomenda() {
+  const ano = new Date().getFullYear();
+  const { count } = await supabase
+    .from('encomendas')
+    .select('*', { count: 'exact', head: true });
+  const seq = String((count || 0) + 1).padStart(3, '0');
+  return `EMIR-${ano}-${seq}`;
+}
+
+// ── HELPER: CÂMBIO ────────────────────────────
+async function getRate() {
+  try {
+    const { data } = await axios.get('https://api.exchangerate-api.com/v4/latest/EUR', { timeout: 4000 });
+    return data.rates.AOA || Number(process.env.EUR_AOA_FALLBACK);
+  } catch {
+    return Number(process.env.EUR_AOA_FALLBACK) || 905;
+  }
+}
+
+// ── HELPER: NOTIFICAÇÃO WHATSAPP ─────────────
+async function notificarWhatsApp(encomenda) {
+  const { ZAPI_INSTANCE_ID, ZAPI_TOKEN, ADMIN_WHATSAPP } = process.env;
+  if (!ZAPI_INSTANCE_ID || !ZAPI_TOKEN) return; // silencia se não configurado
+
+  const estados = { 'Pendente': '🟡', 'Confirmado': '🟢', 'Em Trânsito': '🚚', 'Entregue': '✅', 'Cancelado': '❌' };
+  const icone = estados[encomenda.estado] || '📦';
+
+  const msg = [
+    `${icone} *Nova Encomenda — Emir.com*`,
+    ``,
+    `*Nº:* ${encomenda.numero}`,
+    `*Produto:* ${encomenda.produto_nome || encomenda.produto_url}`,
+    `*Qty:* ${encomenda.quantidade}`,
+    `*Total:* ${Math.round(encomenda.total_kz).toLocaleString('pt-AO')} Kz`,
+    `*Pagamento:* ${encomenda.metodo_pag}`,
+    ``,
+    `*Cliente:* ${encomenda.cliente_nome}`,
+    `*Tel:* ${encomenda.cliente_tel}`,
+    `*Província:* ${encomenda.cliente_prov}${encomenda.cliente_mun ? ', ' + encomenda.cliente_mun : ''}`,
+    `*Morada:* ${encomenda.cliente_morada}`,
+    encomenda.notas ? `*Notas:* ${encomenda.notas}` : null,
+    ``,
+    `_Ver no painel: ${process.env.FRONTEND_URL}/admin_`
+  ].filter(Boolean).join('\n');
+
+  try {
+    await axios.post(
+      `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`,
+      { phone: ADMIN_WHATSAPP, message: msg },
+      { timeout: 8000 }
+    );
+  } catch (e) {
+    console.error('[WPP] Falha ao enviar notificação:', e.message);
+  }
+}
+
+// ════════════════════════════════════════════════
+// ROTAS PÚBLICAS
+// ════════════════════════════════════════════════
+
+// Health check
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', app: 'Emir Backend', version: '1.0.0' });
+});
+
+// ── GET /api/produtos ─────────────────────────
+app.get('/api/produtos', async (req, res) => {
+  const { categoria } = req.query;
+  let query = supabase.from('produtos').select('*').eq('ativo', true).order('id');
+  if (categoria && categoria !== 'Todos') query = query.eq('categoria', categoria);
+
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json(data);
+});
+
+// ── GET /api/cambio ───────────────────────────
+app.get('/api/cambio', async (req, res) => {
+  const rate = await getRate();
+  res.json({ eur_aoa: rate, fonte: 'exchangerate-api.com' });
+});
+
+// ── POST /api/encomendas ──────────────────────
+app.post('/api/encomendas', async (req, res) => {
+  const {
+    produto_url, produto_nome, quantidade = 1,
+    preco_eur, metodo_pag,
+    cliente_nome, cliente_tel, cliente_prov,
+    cliente_mun, cliente_morada, notas
+  } = req.body;
+
+  // Validação básica
+  if (!produto_url || !cliente_nome || !cliente_tel || !cliente_prov || !cliente_morada || !metodo_pag) {
+    return res.status(400).json({ erro: 'Campos obrigatórios em falta.' });
+  }
+
+  // Calcular valores em Kz
+  const rate    = await getRate();
+  const base    = (preco_eur || 0) * rate;
+  const taxa    = base * 0.08;
+  const total   = base + taxa + 5000; // +5000 envio
+
+  const numero  = await gerarNumeroEncomenda();
+
+  const encomenda = {
+    numero, produto_url, produto_nome, quantidade,
+    preco_eur: preco_eur || null,
+    taxa_kz: taxa, envio_kz: 5000, total_kz: total,
+    metodo_pag, estado: 'Pendente',
+    cliente_nome, cliente_tel, cliente_prov,
+    cliente_mun, cliente_morada, notas
+  };
+
+  const { data, error } = await supabase.from('encomendas').insert(encomenda).select().single();
+  if (error) return res.status(500).json({ erro: error.message });
+
+  // Notificar admin por WhatsApp
+  await notificarWhatsApp(data);
+
+  res.status(201).json({
+    sucesso: true,
+    numero: data.numero,
+    mensagem: 'Encomenda registada com sucesso! Vais receber confirmação pelo WhatsApp.'
+  });
+});
+
+// ── POST /api/auth/login ──────────────────────
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ erro: 'Email e password obrigatórios.' });
+
+  const { data: admin, error } = await supabase
+    .from('admins').select('*').eq('email', email.toLowerCase()).single();
+
+  if (error || !admin) return res.status(401).json({ erro: 'Credenciais inválidas.' });
+
+  const ok = await bcrypt.compare(password, admin.password_hash);
+  if (!ok) return res.status(401).json({ erro: 'Credenciais inválidas.' });
+
+  const token = jwt.sign(
+    { id: admin.id, email: admin.email, nome: admin.nome },
+    process.env.JWT_SECRET,
+    { expiresIn: '8h' }
+  );
+
+  res.json({ token, nome: admin.nome, email: admin.email });
+});
+
+// ════════════════════════════════════════════════
+// ROTAS PRIVADAS (requerem token JWT)
+// ════════════════════════════════════════════════
+
+// ── GET /api/admin/encomendas ─────────────────
+app.get('/api/admin/encomendas', authMiddleware, async (req, res) => {
+  const { estado, page = 1, limit = 20 } = req.query;
+  const from = (page - 1) * limit;
+
+  let query = supabase.from('encomendas').select('*', { count: 'exact' }).order('criado_em', { ascending: false }).range(from, from + limit - 1);
+  if (estado && estado !== 'Todos') query = query.eq('estado', estado);
+
+  const { data, error, count } = await query;
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json({ encomendas: data, total: count, page: Number(page), limit: Number(limit) });
+});
+
+// ── GET /api/admin/encomendas/:id ─────────────
+app.get('/api/admin/encomendas/:id', authMiddleware, async (req, res) => {
+  const { data, error } = await supabase.from('encomendas').select('*').eq('id', req.params.id).single();
+  if (error) return res.status(404).json({ erro: 'Encomenda não encontrada.' });
+  res.json(data);
+});
+
+// ── PATCH /api/admin/encomendas/:id/estado ────
+app.patch('/api/admin/encomendas/:id/estado', authMiddleware, async (req, res) => {
+  const { estado } = req.body;
+  const estadosValidos = ['Pendente', 'Confirmado', 'Em Trânsito', 'Entregue', 'Cancelado'];
+  if (!estadosValidos.includes(estado)) return res.status(400).json({ erro: 'Estado inválido.' });
+
+  const { data, error } = await supabase.from('encomendas').update({ estado }).eq('id', req.params.id).select().single();
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json({ sucesso: true, encomenda: data });
+});
+
+// ── GET /api/admin/dashboard ──────────────────
+app.get('/api/admin/dashboard', authMiddleware, async (req, res) => {
+  const [total, pendentes, confirmadas, entregues] = await Promise.all([
+    supabase.from('encomendas').select('*', { count: 'exact', head: true }),
+    supabase.from('encomendas').select('*', { count: 'exact', head: true }).eq('estado', 'Pendente'),
+    supabase.from('encomendas').select('*', { count: 'exact', head: true }).eq('estado', 'Confirmado'),
+    supabase.from('encomendas').select('*', { count: 'exact', head: true }).eq('estado', 'Entregue'),
+  ]);
+
+  // Receita total (encomendas entregues)
+  const { data: receita } = await supabase.from('encomendas').select('total_kz').eq('estado', 'Entregue');
+  const totalKz = (receita || []).reduce((sum, e) => sum + (e.total_kz || 0), 0);
+
+  res.json({
+    total:      total.count || 0,
+    pendentes:  pendentes.count || 0,
+    confirmadas: confirmadas.count || 0,
+    entregues:  entregues.count || 0,
+    receita_kz: Math.round(totalKz)
+  });
+});
+
+// ── GET /api/admin/produtos ───────────────────
+app.get('/api/admin/produtos', authMiddleware, async (req, res) => {
+  const { data, error } = await supabase.from('produtos').select('*').order('id');
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json(data);
+});
+
+// ── POST /api/admin/produtos ──────────────────
+app.post('/api/admin/produtos', authMiddleware, async (req, res) => {
+  const { nome, categoria, loja, preco_eur, imagem_url } = req.body;
+  if (!nome || !categoria || !loja || !preco_eur) return res.status(400).json({ erro: 'Campos obrigatórios em falta.' });
+
+  const { data, error } = await supabase.from('produtos').insert({ nome, categoria, loja, preco_eur, imagem_url }).select().single();
+  if (error) return res.status(500).json({ erro: error.message });
+  res.status(201).json(data);
+});
+
+// ── PATCH /api/admin/produtos/:id ─────────────
+app.patch('/api/admin/produtos/:id', authMiddleware, async (req, res) => {
+  const { nome, categoria, loja, preco_eur, imagem_url, ativo } = req.body;
+  const { data, error } = await supabase.from('produtos').update({ nome, categoria, loja, preco_eur, imagem_url, ativo }).eq('id', req.params.id).select().single();
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json(data);
+});
+
+// ── DELETE /api/admin/produtos/:id ────────────
+app.delete('/api/admin/produtos/:id', authMiddleware, async (req, res) => {
+  const { error } = await supabase.from('produtos').update({ ativo: false }).eq('id', req.params.id);
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json({ sucesso: true });
+});
+
+// ── POST /api/admin/password ──────────────────
+app.post('/api/admin/password', authMiddleware, async (req, res) => {
+  const { password_atual, password_nova } = req.body;
+  if (!password_atual || !password_nova || password_nova.length < 8) {
+    return res.status(400).json({ erro: 'Password nova deve ter pelo menos 8 caracteres.' });
+  }
+
+  const { data: admin } = await supabase.from('admins').select('password_hash').eq('id', req.admin.id).single();
+  const ok = await bcrypt.compare(password_atual, admin.password_hash);
+  if (!ok) return res.status(401).json({ erro: 'Password actual incorrecta.' });
+
+  const hash = await bcrypt.hash(password_nova, 10);
+  await supabase.from('admins').update({ password_hash: hash }).eq('id', req.admin.id);
+  res.json({ sucesso: true });
+});
+
+// ── START ─────────────────────────────────────
+app.listen(PORT, () => {
+  console.log(`\n🚀 Emir Backend a correr na porta ${PORT}`);
+  console.log(`   Supabase: ${process.env.SUPABASE_URL}`);
+  console.log(`   Frontend: ${process.env.FRONTEND_URL}\n`);
+});
