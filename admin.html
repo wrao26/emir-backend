@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Emir.com — Painel Operador</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1A6BFF;--blue2:#3D84FF;
+  --navy:#0A1628;
+  --bg:#F5F7FA;--white:#fff;
+  --text:#0A0A0A;--muted:#6B7280;
+  --border:rgba(10,10,10,.1);
+  --green:#25D366;--red:#EF4444;--orange:#F59E0B;
+  --r:10px;--rx:16px;
+}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── LOGIN ── */
+#login{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:var(--navy)}
+.login-box{background:var(--white);border-radius:20px;padding:48px;width:100%;max-width:400px;box-shadow:0 24px 80px rgba(0,0,0,.3)}
+.login-logo{font-family:'Playfair Display',serif;font-size:2.2rem;font-weight:700;margin-bottom:4px}
+.login-logo span{color:var(--blue)}
+.login-sub{color:var(--muted);font-size:.9rem;margin-bottom:36px}
+.field{margin-bottom:18px}
+.field label{display:block;font-size:.7rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);margin-bottom:8px}
+.field input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Outfit',sans-serif;font-size:.95rem;padding:13px 16px;border-radius:var(--r);outline:none;transition:border-color .2s}
+.field input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,107,255,.08)}
+.btn-login{width:100%;background:var(--navy);color:#fff;border:none;padding:15px;border-radius:var(--r);font-family:'Outfit',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.04em}
+.btn-login:hover{background:#1A3050}
+.err-msg{color:var(--red);font-size:.85rem;margin-top:12px;display:none}
+
+/* ── APP SHELL ── */
+#app{display:none;min-height:100vh}
+.topbar{background:var(--navy);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200}
+.topbar-logo{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:#fff}
+.topbar-logo span{color:var(--blue)}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.topbar-user{font-size:.82rem;color:rgba(255,255,255,.5)}
+.btn-logout{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.7);padding:7px 16px;border-radius:var(--r);font-family:'Outfit',sans-serif;font-size:.8rem;cursor:pointer;transition:all .2s}
+.btn-logout:hover{border-color:var(--red);color:var(--red)}
+
+/* ── TABS ── */
+.tabs{background:var(--white);border-bottom:1px solid var(--border);padding:0 28px;display:flex;gap:0}
+.tab{padding:14px 20px;font-size:.82rem;font-weight:600;letter-spacing:.06em;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;text-transform:uppercase}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab:hover{color:var(--text)}
+
+.main{padding:28px;max-width:1280px;margin:0 auto}
+
+/* ── STATS ── */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:28px}
+.stat{background:var(--white);border:1px solid var(--border);border-radius:var(--rx);padding:20px 24px;transition:box-shadow .2s}
+.stat:hover{box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.stat-val{font-size:1.8rem;font-weight:900;margin-bottom:2px}
+.stat-label{font-size:.7rem;color:var(--muted);font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+
+/* ── FILTERS ── */
+.toolbar{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+.filter-btn{background:var(--white);border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:100px;font-family:'Outfit',sans-serif;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.filter-btn.active,.filter-btn:hover{background:var(--blue);border-color:var(--blue);color:#fff}
+.search-wrap{margin-left:auto;position:relative}
+.search-wrap input{background:var(--white);border:1px solid var(--border);color:var(--text);font-family:'Outfit',sans-serif;font-size:.88rem;padding:8px 16px 8px 36px;border-radius:var(--r);outline:none;width:260px;transition:border-color .2s}
+.search-wrap input:focus{border-color:var(--blue)}
+.search-wrap::before{content:'🔍';position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:.75rem;pointer-events:none}
+
+/* ── TABLE ── */
+.table-wrap{background:var(--white);border:1px solid var(--border);border-radius:var(--rx);overflow:hidden;overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:900px}
+th{background:var(--bg);padding:11px 16px;text-align:left;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:13px 16px;font-size:.87rem;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(26,107,255,.02)}
+.num{font-weight:700;color:var(--blue);font-size:.82rem}
+.empty{text-align:center;padding:64px;color:var(--muted);font-size:.95rem}
+.loading-row{text-align:center;padding:48px;color:var(--muted)}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:100px;font-size:.7rem;font-weight:700;white-space:nowrap}
+.b-Pendente{background:rgba(245,158,11,.12);color:#D97706}
+.b-Cotação{background:rgba(139,92,246,.12);color:#7C3AED}
+.b-Pago{background:rgba(26,107,255,.12);color:var(--blue)}
+.b-Aguardando{background:rgba(245,158,11,.15);color:#B45309}
+.b-Comprado{background:rgba(6,182,212,.12);color:#0891B2}
+.b-Trânsito{background:rgba(249,115,22,.12);color:#EA580C}
+.b-Recebido{background:rgba(16,185,129,.12);color:#059669}
+.b-Enviado{background:rgba(59,130,246,.12);color:#2563EB}
+.b-Entrega{background:rgba(168,85,247,.12);color:#9333EA}
+.b-Entregue{background:rgba(37,211,102,.15);color:#16A34A}
+.b-Cancelado{background:rgba(239,68,68,.12);color:var(--red)}
+
+/* ── ACTION BUTTONS ── */
+.btn-sm{background:none;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;font-family:'Outfit',sans-serif;font-size:.75rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-sm:hover{border-color:var(--blue);color:var(--blue)}
+.btn-wa{background:var(--green);color:#fff;border:none;padding:5px 12px;border-radius:6px;font-family:'Outfit',sans-serif;font-size:.75rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;transition:opacity .2s}
+.btn-wa:hover{opacity:.85}
+.btn-link{background:rgba(26,107,255,.1);color:var(--blue);border:none;padding:5px 12px;border-radius:6px;font-family:'Outfit',sans-serif;font-size:.75rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;transition:all .2s}
+.btn-link:hover{background:rgba(26,107,255,.2)}
+.actions-cell{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+/* ── DRAWER DETALHE ── */
+.drw-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:300;display:none;backdrop-filter:blur(4px)}
+.drw-overlay.open{display:block}
+.drw{position:fixed;top:0;right:0;bottom:0;width:100%;max-width:520px;background:var(--white);z-index:301;transform:translateX(100%);transition:transform .4s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column;box-shadow:-20px 0 60px rgba(0,0,0,.15)}
+.drw.open{transform:translateX(0)}
+.drw-head{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0}
+.drw-back{background:none;border:none;cursor:pointer;color:var(--text);display:flex;align-items:center;padding:4px;transition:opacity .2s}
+.drw-back:hover{opacity:.6}
+.drw-back svg{width:20px;height:20px}
+.drw-title{font-size:1rem;font-weight:800;flex:1}
+.drw-num{font-size:.78rem;color:var(--blue);font-weight:700}
+.drw-body{padding:24px;overflow-y:auto;flex:1}
+.drw-footer{padding:16px 24px;border-top:1px solid var(--border);flex-shrink:0}
+
+/* detail sections */
+.d-section{margin-bottom:24px}
+.d-section-title{font-size:.65rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--blue);margin-bottom:12px}
+.d-row{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--border);font-size:.88rem;gap:16px}
+.d-row:last-child{border-bottom:none}
+.d-label{color:var(--muted);font-weight:500;flex-shrink:0}
+.d-val{font-weight:600;text-align:right;word-break:break-word;max-width:65%}
+
+/* estado selector */
+.estado-selector{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.estado-opt{padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--r);font-family:'Outfit',sans-serif;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;background:var(--white)}
+.estado-opt:hover{border-color:var(--blue);background:rgba(26,107,255,.04)}
+.estado-opt.sel{border-color:var(--blue);background:rgba(26,107,255,.08);color:var(--blue)}
+.estado-opt.sel-cancel{border-color:var(--red);background:rgba(239,68,68,.06);color:var(--red)}
+
+/* tracking */
+.tracking-input-wrap{display:flex;gap:8px;margin-bottom:16px}
+.tracking-input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Outfit',sans-serif;font-size:.9rem;padding:11px 14px;border-radius:var(--r);outline:none;transition:border-color .2s}
+.tracking-input:focus{border-color:var(--blue)}
+.btn-save-track{background:var(--navy);color:#fff;border:none;padding:11px 18px;border-radius:var(--r);font-family:'Outfit',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;transition:background .2s;white-space:nowrap}
+.btn-save-track:hover{background:#1A3050}
+.track-link{display:inline-flex;align-items:center;gap:6px;color:var(--blue);font-size:.85rem;font-weight:600;text-decoration:none;margin-top:4px}
+.track-link:hover{text-decoration:underline}
+
+/* timeline */
+.timeline{display:flex;flex-direction:column;gap:0;margin-top:8px}
+.tl-item{display:flex;gap:14px;position:relative}
+.tl-item:not(:last-child)::before{content:'';position:absolute;left:11px;top:24px;bottom:-4px;width:1.5px;background:var(--border)}
+.tl-dot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0;margin-top:2px}
+.tl-dot.done{background:rgba(37,211,102,.15);color:#16A34A}
+.tl-dot.current{background:rgba(26,107,255,.15);color:var(--blue)}
+.tl-dot.pending{background:var(--bg);color:var(--muted);border:1.5px solid var(--border)}
+.tl-content{padding:2px 0 16px}
+.tl-label{font-size:.85rem;font-weight:600;color:var(--text)}
+.tl-date{font-size:.75rem;color:var(--muted);margin-top:2px}
+
+/* action buttons drawer */
+.drw-actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn-drw{flex:1;padding:11px;border-radius:var(--r);font-family:'Outfit',sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;border:none;transition:all .2s;min-width:120px;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn-drw-primary{background:var(--navy);color:#fff}
+.btn-drw-primary:hover{background:#1A3050}
+.btn-drw-green{background:var(--green);color:#fff}
+.btn-drw-green:hover{opacity:.9}
+.btn-drw-red{background:var(--red);color:#fff}
+.btn-drw-red:hover{opacity:.9}
+.btn-drw-ghost{background:var(--bg);color:var(--text);border:1px solid var(--border)}
+.btn-drw-ghost:hover{border-color:var(--blue);color:var(--blue)}
+
+/* ── PRODUTOS TAB ── */
+.prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.prod-card-admin{background:var(--white);border:1px solid var(--border);border-radius:var(--rx);overflow:hidden;transition:box-shadow .2s}
+.prod-card-admin:hover{box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.pca-img{height:160px;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.pca-img img{width:100%;height:100%;object-fit:cover}
+.pca-inactive{position:absolute;top:8px;right:8px;background:rgba(239,68,68,.9);color:#fff;font-size:.65rem;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:.06em}
+.pca-body{padding:16px}
+.pca-store{font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);margin-bottom:4px}
+.pca-name{font-weight:700;font-size:.95rem;margin-bottom:8px}
+.pca-price{font-size:1.2rem;font-weight:900;color:var(--navy)}
+.pca-actions{display:flex;gap:8px;margin-top:14px}
+
+/* ── MODAL NOVO PRODUTO ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:400;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:24px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--white);border-radius:20px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:32px}
+.modal-title{font-size:1.15rem;font-weight:800;margin-bottom:24px}
+.mfield{margin-bottom:16px}
+.mfield label{display:block;font-size:.7rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);margin-bottom:7px}
+.mfield input,.mfield select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Outfit',sans-serif;font-size:.9rem;padding:11px 14px;border-radius:var(--r);outline:none;transition:border-color .2s}
+.mfield input:focus,.mfield select:focus{border-color:var(--blue)}
+.modal-actions{display:flex;gap:10px;margin-top:24px}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--navy);color:#fff;padding:12px 24px;border-radius:100px;font-size:.85rem;font-weight:600;z-index:9999;transition:transform .4s cubic-bezier(.16,1,.3,1);pointer-events:none;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+@media(max-width:768px){
+  .stats{grid-template-columns:1fr 1fr}
+  .topbar,.main{padding-left:16px;padding-right:16px}
+  .tabs{padding:0 16px;overflow-x:auto}
+  .tab{white-space:nowrap}
+  .search-wrap input{width:100%}
+  .search-wrap{margin-left:0;width:100%}
+  .toolbar{gap:6px}
+  .estado-selector{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="login-box">
+    <div class="login-logo">Emir<span>.</span>com</div>
+    <div class="login-sub">Painel do Operador</div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="lg_email" placeholder="admin@emir.com" value="admin@emir.com">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="lg_pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn-login" onclick="doLogin()">Entrar →</button>
+    <div class="err-msg" id="lg_err">Email ou password incorrectos.</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-logo">Emir<span>.</span>com</div>
+    <div class="topbar-right">
+      <span class="topbar-user" id="admin_name"></span>
+      <button class="btn-logout" onclick="doLogout()">Sair</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('encomendas',this)">Encomendas</div>
+    <div class="tab" onclick="switchTab('produtos',this)">Produtos</div>
+  </div>
+
+  <!-- ENCOMENDAS TAB -->
+  <div id="tab_encomendas" class="main">
+    <div class="stats" id="stats_row">
+      <div class="stat"><div class="stat-val" id="st_total">—</div><div class="stat-label">Total</div></div>
+      <div class="stat"><div class="stat-val" style="color:var(--orange)" id="st_pend">—</div><div class="stat-label">Pendentes</div></div>
+      <div class="stat"><div class="stat-val" style="color:var(--blue)" id="st_pago">—</div><div class="stat-label">Pagos</div></div>
+      <div class="stat"><div class="stat-val" style="color:#0891B2" id="st_transit">—</div><div class="stat-label">Em Trânsito</div></div>
+      <div class="stat"><div class="stat-val" style="color:var(--green)" id="st_entregue">—</div><div class="stat-label">Entregues</div></div>
+    </div>
+
+    <div class="toolbar">
+      <button class="filter-btn active" onclick="setFilter('Todos',this)">Todas</button>
+      <button class="filter-btn" onclick="setFilter('Pendente',this)">Pendentes</button>
+      <button class="filter-btn" onclick="setFilter('Pago',this)">Pagos</button>
+      <button class="filter-btn" onclick="setFilter('Comprado',this)">Comprados</button>
+      <button class="filter-btn" onclick="setFilter('Enviado para Angola',this)">Em Angola</button>
+      <button class="filter-btn" onclick="setFilter('Entregue',this)">Entregues</button>
+      <button class="filter-btn" onclick="setFilter('Cancelado',this)">Cancelados</button>
+      <div class="search-wrap">
+        <input type="text" id="search" placeholder="Pesquisar cliente ou produto…" oninput="renderTable()">
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Nº</th>
+            <th>Cliente</th>
+            <th>Produto</th>
+            <th>Total</th>
+            <th>Pagamento</th>
+            <th>Estado</th>
+            <th>Data</th>
+            <th>Acções</th>
+          </tr>
+        </thead>
+        <tbody id="tbl_body">
+          <tr><td colspan="8" class="loading-row">A carregar…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PRODUTOS TAB -->
+  <div id="tab_produtos" class="main" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div>
+        <div style="font-size:1.3rem;font-weight:800">Produtos</div>
+        <div style="color:var(--muted);font-size:.88rem;margin-top:4px">Gerir o catálogo de produtos</div>
+      </div>
+      <button class="btn-drw btn-drw-primary" style="flex:none;padding:11px 20px" onclick="openProdModal()">+ Novo Produto</button>
+    </div>
+    <div class="prod-grid" id="prod_grid">
+      <div class="loading-row" style="text-align:center;padding:48px;color:var(--muted)">A carregar…</div>
+    </div>
+  </div>
+</div>
+
+<!-- DRAWER DETALHE ENCOMENDA -->
+<div class="drw-overlay" id="drw_overlay" onclick="closeDrawer()"></div>
+<div class="drw" id="drw">
+  <div class="drw-head">
+    <button class="drw-back" onclick="closeDrawer()">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/></svg>
+    </button>
+    <div class="drw-title" id="drw_title">Encomenda</div>
+    <div class="drw-num" id="drw_num"></div>
+  </div>
+  <div class="drw-body" id="drw_body"></div>
+  <div class="drw-footer" id="drw_footer"></div>
+</div>
+
+<!-- MODAL NOVO PRODUTO -->
+<div class="modal-overlay" id="prod_modal">
+  <div class="modal">
+    <div class="modal-title" id="prod_modal_title">Novo Produto</div>
+    <div class="mfield"><label>Nome *</label><input type="text" id="p_nome" placeholder="Ex: Nike Air Max 270"></div>
+    <div class="mfield"><label>Categoria *</label>
+      <select id="p_cat">
+        <option value="">Selecciona</option>
+        <option>Moda</option><option>Calçado</option><option>Tecnologia</option>
+        <option>Casa</option><option>Beleza</option><option>Gaming</option>
+        <option>Infantil</option><option>Outros</option>
+      </select>
+    </div>
+    <div class="mfield"><label>Loja *</label><input type="text" id="p_loja" placeholder="Ex: Nike.com"></div>
+    <div class="mfield"><label>Preço EUR *</label><input type="number" id="p_eur" placeholder="0.00" step="0.01" min="0"></div>
+    <div class="mfield"><label>URL Imagem</label><input type="url" id="p_img" placeholder="https://…"></div>
+    <div class="modal-actions">
+      <button class="btn-drw btn-drw-primary" style="flex:1" onclick="saveProd()">Guardar</button>
+      <button class="btn-drw btn-drw-ghost" style="flex:1" onclick="closeProdModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'https://emir-backend-production.up.railway.app';
+
+const ESTADOS = [
+  { key:'Pendente',            emoji:'🟡' },
+  { key:'Cotação Enviada',     emoji:'📋' },
+  { key:'Pago',                emoji:'💳' },
+  { key:'Aguardando Compra',   emoji:'⏳' },
+  { key:'Comprado',            emoji:'🛒' },
+  { key:'Em Trânsito Europa',  emoji:'🚚' },
+  { key:'Recebido na Europa',  emoji:'🏭' },
+  { key:'Enviado para Angola', emoji:'✈️' },
+  { key:'Em Entrega',          emoji:'📦' },
+  { key:'Entregue',            emoji:'✅' },
+  { key:'Cancelado',           emoji:'❌' },
+];
+
+const BADGE_CLASS = {
+  'Pendente':'b-Pendente','Cotação Enviada':'b-Cotação','Pago':'b-Pago',
+  'Aguardando Compra':'b-Aguardando','Comprado':'b-Comprado',
+  'Em Trânsito Europa':'b-Trânsito','Recebido na Europa':'b-Recebido',
+  'Enviado para Angola':'b-Enviado','Em Entrega':'b-Entrega',
+  'Entregue':'b-Entregue','Cancelado':'b-Cancelado'
+};
+
+let TOKEN='', ORDERS=[], PRODS=[], curOrder=null, curFilter='Todos', editProdId=null;
+
+/* ── LOGIN ── */
+async function doLogin() {
+  const email=document.getElementById('lg_email').value.trim();
+  const pass=document.getElementById('lg_pass').value.trim();
+  const err=document.getElementById('lg_err');
+  err.style.display='none';
+  try {
+    const r=await fetch(`${API}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+    const d=await r.json();
+    if(!r.ok||!d.token){err.style.display='block';return;}
+    TOKEN=d.token;
+    document.getElementById('admin_name').textContent=d.nome||email;
+    document.getElementById('login').style.display='none';
+    document.getElementById('app').style.display='block';
+    loadOrders();
+    setInterval(loadOrders,30000);
+  } catch(e){err.textContent='Erro de ligação.';err.style.display='block';}
+}
+function doLogout(){TOKEN='';ORDERS=[];document.getElementById('app').style.display='none';document.getElementById('login').style.display='flex';}
+
+/* ── TABS ── */
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab_encomendas').style.display=tab==='encomendas'?'block':'none';
+  document.getElementById('tab_produtos').style.display=tab==='produtos'?'block':'none';
+  if(tab==='produtos') loadProds();
+}
+
+/* ── TOAST ── */
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+/* ── ORDERS ── */
+async function loadOrders() {
+  try {
+    const r=await fetch(`${API}/api/admin/encomendas?limit=100`,{headers:{'Authorization':`Bearer ${TOKEN}`}});
+    if(!r.ok) return;
+    const d=await r.json();
+    ORDERS=d.encomendas||d;
+    updateStats();
+    renderTable();
+  } catch(e){}
+}
+
+function updateStats() {
+  document.getElementById('st_total').textContent=ORDERS.length;
+  document.getElementById('st_pend').textContent=ORDERS.filter(o=>o.estado==='Pendente').length;
+  document.getElementById('st_pago').textContent=ORDERS.filter(o=>o.estado==='Pago').length;
+  document.getElementById('st_transit').textContent=ORDERS.filter(o=>['Em Trânsito Europa','Recebido na Europa','Enviado para Angola','Em Entrega'].includes(o.estado)).length;
+  document.getElementById('st_entregue').textContent=ORDERS.filter(o=>o.estado==='Entregue').length;
+}
+
+function setFilter(f,btn) {
+  curFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+function renderTable() {
+  const q=document.getElementById('search').value.toLowerCase();
+  let list=ORDERS;
+  if(curFilter!=='Todos') list=list.filter(o=>o.estado===curFilter);
+  if(q) list=list.filter(o=>(o.cliente_nome||'').toLowerCase().includes(q)||(o.produto_nome||'').toLowerCase().includes(q)||(o.numero||'').toLowerCase().includes(q));
+  const tbody=document.getElementById('tbl_body');
+  if(!list.length){tbody.innerHTML='<tr><td colspan="8" class="empty">Nenhuma encomenda encontrada.</td></tr>';return;}
+  tbody.innerHTML=list.map(o=>{
+    const emoji=ESTADO_EMOJI(o.estado);
+    const bc=BADGE_CLASS[o.estado]||'b-Pendente';
+    return `<tr>
+      <td><span class="num">${o.numero||'#'+o.id}</span></td>
+      <td><div style="font-weight:600">${o.cliente_nome}</div><div style="font-size:.78rem;color:var(--muted)">${o.cliente_tel||''}</div></td>
+      <td style="max-width:200px"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px">${o.produto_nome||'—'}</div>${o.produto_url?`<a href="${o.produto_url}" target="_blank" style="font-size:.75rem;color:var(--blue)">Ver produto ↗</a>`:''}</td>
+      <td><b>${fmtKz(o.total_kz)}</b></td>
+      <td style="font-size:.82rem">${o.metodo_pag||'—'}</td>
+      <td><span class="badge ${bc}">${emoji} ${o.estado}</span></td>
+      <td style="color:var(--muted);font-size:.8rem;white-space:nowrap">${fmtDate(o.criado_em||o.created_at)}</td>
+      <td><div class="actions-cell">
+        <button class="btn-sm" onclick="openDrawer(${o.id})">Gerir</button>
+        ${o.cliente_tel?`<a class="btn-wa" href="https://wa.me/${cleanPhone(o.cliente_tel)}?text=${encodeURIComponent('Olá '+o.cliente_nome+'! Actualização da encomenda '+o.numero+'.')}" target="_blank">WhatsApp</a>`:''}
+        ${o.produto_url?`<a class="btn-link" href="${o.produto_url}" target="_blank">Produto ↗</a>`:''}
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── DRAWER ── */
+function openDrawer(id) {
+  curOrder=ORDERS.find(o=>o.id===id);
+  if(!curOrder) return;
+  const o=curOrder;
+  document.getElementById('drw_title').textContent='Encomenda';
+  document.getElementById('drw_num').textContent=o.numero||'#'+o.id;
+
+  const estadoIdx=ESTADOS.findIndex(e=>e.key===o.estado);
+
+  document.getElementById('drw_body').innerHTML=`
+    <!-- PRODUTO -->
+    <div class="d-section">
+      <div class="d-section-title">Produto</div>
+      ${o.produto_url?`
+        <div style="background:#F0F7FF;border:1px solid rgba(26,107,255,.2);border-radius:12px;padding:16px;margin-bottom:16px">
+          <div style="font-size:.7rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);margin-bottom:10px">Compra Semi-Automatizada</div>
+          <a href="${o.produto_url}" target="_blank" class="btn-drw btn-drw-primary" style="flex:none;width:100%;margin-bottom:8px">🛒 Abrir Produto ↗</a>
+          <button class="btn-drw btn-drw-ghost" style="width:100%;font-size:.78rem" onclick="copiarDadosCompra(${o.id})">📋 Copiar Dados do Cliente</button>
+          <div style="margin-top:10px;font-size:.75rem;color:var(--muted)">1. Abre o produto · 2. Copia os dados · 3. Preenche o checkout · 4. Confirma</div>
+        </div>
+      `:``}
+      <div class="d-row"><span class="d-label">Produto</span><span class="d-val">${o.produto_nome||'—'}</span></div>
+      <div class="d-row"><span class="d-label">Quantidade</span><span class="d-val">${o.quantidade||1}</span></div>
+      <div class="d-row"><span class="d-label">Preço EUR</span><span class="d-val">${o.preco_eur?'€'+o.preco_eur:'—'}</span></div>
+      <div class="d-row"><span class="d-label">Total Kz</span><span class="d-val" style="font-size:1.1rem;color:var(--blue)">${fmtKz(o.total_kz)}</span></div>
+      <div class="d-row"><span class="d-label">Pagamento</span><span class="d-val">${o.metodo_pag||'—'}</span></div>
+    </div>
+
+    <!-- CLIENTE -->
+    <div class="d-section">
+      <div class="d-section-title">Cliente</div>
+      <div class="d-row"><span class="d-label">Nome</span><span class="d-val">${o.cliente_nome}</span></div>
+      <div class="d-row"><span class="d-label">WhatsApp</span><span class="d-val"><a href="https://wa.me/${cleanPhone(o.cliente_tel||'')}" target="_blank" style="color:var(--green)">${o.cliente_tel||'—'}</a></span></div>
+      <div class="d-row"><span class="d-label">Email</span><span class="d-val">${o.cliente_email||'—'}</span></div>
+      <div class="d-row"><span class="d-label">Província</span><span class="d-val">${o.cliente_prov||'—'}</span></div>
+      <div class="d-row"><span class="d-label">Município</span><span class="d-val">${o.cliente_mun||'—'}</span></div>
+      <div class="d-row"><span class="d-label">Morada</span><span class="d-val">${o.cliente_morada||'—'}</span></div>
+      ${o.notas?`<div class="d-row"><span class="d-label">Notas</span><span class="d-val">${o.notas}</span></div>`:''}
+    </div>
+
+    <!-- TRACKING -->
+    <div class="d-section">
+      <div class="d-section-title">Tracking</div>
+      <div class="tracking-input-wrap">
+        <input class="tracking-input" type="text" id="track_input" placeholder="Ex: PT123456789CN" value="${o.tracking_code||''}">
+        <button class="btn-save-track" onclick="saveTracking()">Guardar</button>
+      </div>
+      ${o.tracking_code?`<a href="https://t.17track.net/en#nums=${o.tracking_code}" target="_blank" class="track-link">📦 Rastrear no 17track ↗</a>`:'<span style="font-size:.82rem;color:var(--muted)">Sem código de tracking ainda</span>'}
+    </div>
+
+    <!-- TIMELINE -->
+    <div class="d-section">
+      <div class="d-section-title">Progresso</div>
+      <div class="timeline">
+        ${ESTADOS.filter(e=>e.key!=='Cancelado').map((e,i)=>{
+          const done=i<estadoIdx;
+          const current=e.key===o.estado;
+          const cls=done?'done':current?'current':'pending';
+          return `<div class="tl-item">
+            <div class="tl-dot ${cls}">${done?'✓':current?e.emoji:''}</div>
+            <div class="tl-content">
+              <div class="tl-label" style="${current?'font-weight:700;color:var(--blue)':''}${done?'color:var(--muted)':''}">${e.key}</div>
+              ${current?`<div class="tl-date">Estado actual</div>`:''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- MUDAR ESTADO -->
+    <div class="d-section">
+      <div class="d-section-title">Mudar Estado</div>
+      <div class="estado-selector">
+        ${ESTADOS.filter(e=>e.key!=='Cancelado').map(e=>`
+          <button class="estado-opt ${e.key===o.estado?'sel':''}" onclick="changeState('${e.key}',this)">${e.emoji} ${e.key}</button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('drw_footer').innerHTML=`
+    <div class="drw-actions">
+      ${o.cliente_tel?`<a class="btn-drw btn-drw-green" href="https://wa.me/${cleanPhone(o.cliente_tel)}?text=${encodeURIComponent('Olá '+o.cliente_nome+'! A actualização da tua encomenda '+o.numero+': '+o.estado+'.')}" target="_blank">💬 WhatsApp</a>`:''}
+      ${o.estado!=='Cancelado'?`<button class="btn-drw btn-drw-red" onclick="changeState('Cancelado')">❌ Cancelar</button>`:''}
+      <button class="btn-drw btn-drw-ghost" onclick="closeDrawer()">Fechar</button>
+    </div>
+  `;
+
+  document.getElementById('drw_overlay').classList.add('open');
+  document.getElementById('drw').classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('drw_overlay').classList.remove('open');
+  document.getElementById('drw').classList.remove('open');
+  curOrder=null;
+}
+
+async function changeState(estado, btn) {
+  if(!curOrder) return;
+  try {
+    const r=await fetch(`${API}/api/admin/encomendas/${curOrder.id}/estado`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${TOKEN}`},
+      body:JSON.stringify({estado})
+    });
+    if(!r.ok) throw new Error();
+    curOrder.estado=estado;
+    // actualiza badge no drawer
+    document.querySelectorAll('.estado-opt').forEach(b=>b.classList.remove('sel'));
+    if(btn) btn.classList.add('sel');
+    await loadOrders();
+    showToast(`Estado actualizado → ${estado} ✅`);
+  } catch(e){showToast('Erro ao actualizar estado.');}
+}
+
+async function saveTracking() {
+  if(!curOrder) return;
+  const code=document.getElementById('track_input').value.trim();
+  try {
+    await fetch(`${API}/api/admin/encomendas/${curOrder.id}`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${TOKEN}`},
+      body:JSON.stringify({tracking_code:code})
+    });
+    curOrder.tracking_code=code;
+    showToast('Tracking guardado ✅');
+    // actualiza link
+    const wrap=document.getElementById('track_input').parentElement.nextElementSibling;
+    if(wrap && code) wrap.outerHTML=`<a href="https://t.17track.net/en#nums=${code}" target="_blank" class="track-link">📦 Rastrear no 17track ↗</a>`;
+  } catch(e){showToast('Erro ao guardar tracking.');}
+}
+
+/* ── PRODUTOS ── */
+async function loadProds() {
+  try {
+    const r=await fetch(`${API}/api/admin/produtos`,{headers:{'Authorization':`Bearer ${TOKEN}`}});
+    if(!r.ok) return;
+    PRODS=await r.json();
+    renderProds();
+  } catch(e){}
+}
+
+function renderProds() {
+  const g=document.getElementById('prod_grid');
+  if(!PRODS.length){g.innerHTML='<div class="empty">Nenhum produto.</div>';return;}
+  g.innerHTML=PRODS.map(p=>`
+    <div class="prod-card-admin">
+      <div class="pca-img">
+        ${p.imagem_url?`<img src="${p.imagem_url}" alt="${p.nome}" loading="lazy">`:`<span style="font-size:2.5rem">📦</span>`}
+        ${!p.ativo?'<span class="pca-inactive">Inactivo</span>':''}
+      </div>
+      <div class="pca-body">
+        <div class="pca-store">${p.loja}</div>
+        <div class="pca-name">${p.nome}</div>
+        <div class="pca-price">€${p.preco_eur}</div>
+        <div class="pca-actions">
+          <button class="btn-sm" onclick="editProd(${p.id})" style="flex:1">Editar</button>
+          <button class="btn-sm" onclick="toggleProd(${p.id},${!p.ativo})" style="flex:1">${p.ativo?'Desactivar':'Activar'}</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openProdModal(id) {
+  editProdId=id||null;
+  document.getElementById('prod_modal_title').textContent=id?'Editar Produto':'Novo Produto';
+  if(id){
+    const p=PRODS.find(x=>x.id===id);
+    if(p){
+      document.getElementById('p_nome').value=p.nome;
+      document.getElementById('p_cat').value=p.categoria;
+      document.getElementById('p_loja').value=p.loja;
+      document.getElementById('p_eur').value=p.preco_eur;
+      document.getElementById('p_img').value=p.imagem_url||'';
+    }
+  } else {
+    ['p_nome','p_cat','p_loja','p_eur','p_img'].forEach(id=>document.getElementById(id).value='');
+  }
+  document.getElementById('prod_modal').classList.add('open');
+}
+
+function editProd(id){openProdModal(id);}
+function closeProdModal(){document.getElementById('prod_modal').classList.remove('open');editProdId=null;}
+
+async function saveProd() {
+  const body={
+    nome:document.getElementById('p_nome').value.trim(),
+    categoria:document.getElementById('p_cat').value,
+    loja:document.getElementById('p_loja').value.trim(),
+    preco_eur:parseFloat(document.getElementById('p_eur').value),
+    imagem_url:document.getElementById('p_img').value.trim()||null
+  };
+  if(!body.nome||!body.categoria||!body.loja||!body.preco_eur){showToast('Preenche todos os campos obrigatórios.');return;}
+  try {
+    const url=editProdId?`${API}/api/admin/produtos/${editProdId}`:`${API}/api/admin/produtos`;
+    const method=editProdId?'PATCH':'POST';
+    const r=await fetch(url,{method,headers:{'Content-Type':'application/json','Authorization':`Bearer ${TOKEN}`},body:JSON.stringify(body)});
+    if(!r.ok) throw new Error();
+    closeProdModal();
+    await loadProds();
+    showToast(editProdId?'Produto actualizado ✅':'Produto criado ✅');
+  } catch(e){showToast('Erro ao guardar produto.');}
+}
+
+async function toggleProd(id,ativo) {
+  try {
+    await fetch(`${API}/api/admin/produtos/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json','Authorization':`Bearer ${TOKEN}`},body:JSON.stringify({ativo})});
+    await loadProds();
+    showToast(ativo?'Produto activado ✅':'Produto desactivado');
+  } catch(e){showToast('Erro.');}
+}
+
+
+/* ── COPIAR DADOS CLIENTE ── */
+function copiarDadosCompra(id) {
+  const o = ORDERS.find(x => x.id === id);
+  if (!o) return;
+  const texto = [
+    '=== DADOS PARA COMPRA ===',
+    '',
+    '📦 PRODUTO',
+    `Nome: ${o.produto_nome || '—'}`,
+    `Link: ${o.produto_url || '—'}`,
+    `Quantidade: ${o.quantidade || 1}`,
+    '',
+    '👤 ENTREGA',
+    `Nome: ${o.cliente_nome}`,
+    `WhatsApp: ${o.cliente_tel || '—'}`,
+    `Província: ${o.cliente_prov || '—'}`,
+    `Município: ${o.cliente_mun || '—'}`,
+    `Morada: ${o.cliente_morada || '—'}`,
+    '',
+    '💰 PAGAMENTO',
+    `Total: ${fmtKz(o.total_kz)}`,
+    `Método: ${o.metodo_pag || '—'}`,
+    `Encomenda Nº: ${o.numero || o.id}`,
+  ].join('
+');
+  
+  navigator.clipboard.writeText(texto).then(() => {
+    showToast('Dados copiados! Cola no checkout ✅');
+  }).catch(() => {
+    // fallback
+    const el = document.createElement('textarea');
+    el.value = texto; document.body.appendChild(el);
+    el.select(); document.execCommand('copy');
+    document.body.removeChild(el);
+    showToast('Dados copiados! Cola no checkout ✅');
+  });
+}
+
+/* ── SCRAPER NO FRONTEND ── */
+async function scrapeUrl(url) {
+  if (!url) return null;
+  try {
+    const r = await fetch(`${API}/api/scrape`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+      body: JSON.stringify({ url })
+    });
+    return await r.json();
+  } catch { return null; }
+}
+/* ── UTILS ── */
+function ESTADO_EMOJI(e){return(ESTADOS.find(x=>x.key===e)||{emoji:'📦'}).emoji;}
+function fmtDate(d){if(!d)return'—';return new Date(d).toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
+function fmtKz(v){if(!v&&v!==0)return'—';return Math.round(v).toLocaleString('pt-AO')+' Kz';}
+function cleanPhone(p){return p.replace(/\D/,'');}
+</script>
+</body>
+</html>
